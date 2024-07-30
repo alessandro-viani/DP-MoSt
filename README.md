@@ -1,28 +1,81 @@
-DP-MoSt is based on the optimization of two complementary problems: (i) estimating an absolute long-term disease time axis from short-term observations, and (ii) identifying along this disease time axis the existence of sub-populations with respective sub-trajectories.
+# DP-MoSt: Disease Progression Modeling and Sub-Trajectory Identification
 
-Considering problem (i), for each individual $j$ we define the observations across all biomarkers as $\bm x^j = (\bm x^j_b)_{b=1}^B$; where $\bm x^j_b = (\bm x_b^j(\tilde t_{1}), \ldots, x_{1}^{j}(\tilde t_{k_j}))$ and $B$ is the number of biomarkers. Without loss of generality, for notational convenience, we assume that the sampling times are common among all subjects and biomarkers. To map the individual observations to a common disease time scale, we parameterize the individual time axis via a translation by a time-shift $\delta {\tilde t}_j$, i.e.\;$\bm t_j = \tilde t_{1:k_j} + \delta {\tilde t}_j$.
-In this work, we evaluate the time shifts relying on the Gaussian process theory of GPPM \cite{lorenzi2019probabilistic}, which is based on the monotonic description of biomarkers trajectories from normal to pathological stages.
+DP-MoSt is a method designed to model disease progression and identify sub-populations within a cohort based on longitudinal biomarker data. It optimizes two complementary problems: 
 
-Considering problem (ii), given the measured observations $\bm x= \bm x^{1:J}$, where $J$ is the number of subjects, and the estimated absolute time $\bm t= \bm t_{1:J}$, we define a trajectory mixture model to identify the existence of sub-populations.
+1. **Estimating an absolute long-term disease time axis from short-term observations**.
+2. **Identifying sub-populations along this disease time axis with respective sub-trajectories**.
 
-To achieve our goal, we assume that the evolution of each biomarker $b$ can be split into multiple sub-trajectories with probability $\xi_b$ (${b=1}, \ldots, B$). Once a sub-trajectory is considered, we assume that each subject $j$ is issued from this trajectory with probability $\pi_j$ (${j=1}, \ldots, J$). We observe that both $\xi = (\xi_b)_{1}^B$ and $\pi = (\pi_j)_1^J$ are independent with respect to time. This allows our model to link information deriving from longitudinal data; we also note that the probability for a subject belonging to one sub-trajectory must be consistent across all the biomarkers.
+## Overview
 
-To simplify the inference process, compatibly with the monotonic assumption of GPPM, we adopt a parametric approach for the disease trajectories assuming that biomarkers follow increasing sigmoidal functions %with parameters $\theta=(\theta_b)_{b=1}^B$
-over time. %, where $\theta_b$ is a vector consisting of the supremum, mid-point and rate of growth.
-We furthermore assume that the given measures are perturbed by additive Gaussian noise with standard deviation $\sigma=(\sigma_{b})_{b=1}^B$. Given the assumptions above, the posterior distribution for our model can be written as:
-\begin{equation}
-\begin{split}
-	p(\theta, \sigma, \xi, \pi \mid \bm x) \propto p(\theta, \sigma, \xi, \pi)\prod_{j,b} p(\bm x_b^j \mid \theta_b, \sigma_b, \xi_b, \pi_j)
-	\end{split}
-	\label{eq:post_full}
-\end{equation}
-where for simplicity we omitted the conditioning on the time points. We observe that Equation \eqref{eq:post_full} implicitly assumes independence between the unknown parameters as well as independence between different subjects and biomarkers.
+### Problem (i): Estimating Disease Time Axis
 
-We can rewrite the equation by expanding the likelihood function in order to highlight the two-level mixture model formulation. In this setting, a first level deals with the sub-trajectory discovery task, while a second one determines the probability of a subject to belong to the sub-trajectory:
-\begin{equation}
-\begin{split}
-	p(\bm x \mid \theta, \sigma, \xi, \pi)=&\prod_{j,b}\biggl[p(\bm x_b^j \mid \theta_b^0, \sigma_b)\xi_b +\\& \left(\pi_jp(\bm x_b^j \mid \theta_b^1, \sigma_b) + (1-\pi_j) p(\bm x_b^j \mid \theta_b^2, \sigma_b) \right)(1-\xi_b)\biggl],
-	\end{split}
-	\label{eq:like_full}
-\end{equation}
-where $p(\bm x_b^j \mid \theta_b^i, \sigma_b) = \prod_{\ell=1}^{k_j} \text{NormPDF}\left(x_b^j(t_\ell), f(t_\ell\mid \theta_b^i), \sigma_b\right)$ due to the assumption of additive Gaussian noise, and $f(t_\ell\mid \theta_b^i)$ is a Sigmoid function with parameters $\theta_b^i$ evaluated at $t_\ell$.
+For each individual \( j \), we define the observations across all biomarkers as \( \bm x^j = (\bm x^j_b)_{b=1}^B \), where \( \bm x^j_b = (x_b^j(\tilde{t}_{1}), \ldots, x_b^j(\tilde{t}_{k_j})) \) and \( B \) is the number of biomarkers. Assuming common sampling times among all subjects and biomarkers, we parameterize the individual time axis via a translation by a time-shift \( \delta \tilde{t}_j \), i.e., \( \bm t_j = \tilde{t}_{1:k_j} + \delta \tilde{t}_j \).
+
+We evaluate the time shifts using the Gaussian process theory of GPPM, which describes biomarker trajectories from normal to pathological stages monotonically.
+
+### Problem (ii): Identifying Sub-Populations
+
+Given the observations \( \bm x = \bm x^{1:J} \), where \( J \) is the number of subjects, and the estimated absolute time \( \bm t = \bm t_{1:J} \), we define a trajectory mixture model to identify sub-populations. 
+
+We assume that the evolution of each biomarker \( b \) can be split into multiple sub-trajectories with probability \( \xi_b \) (\( b=1, \ldots, B \)). Each subject \( j \) is assumed to be issued from a sub-trajectory with probability \( \pi_j \) (\( j=1, \ldots, J \)). Both \( \xi \) and \( \pi \) are assumed to be time-independent, ensuring consistent sub-trajectory assignment across all biomarkers.
+
+### Model Assumptions
+
+- **Disease Trajectories**: Modeled as increasing sigmoidal functions.
+- **Measurement Noise**: Modeled as additive Gaussian noise with standard deviation \( \sigma = (\sigma_b)_{b=1}^B \).
+
+### Posterior Distribution
+
+The posterior distribution for the model is given by:
+\[
+p(\theta, \sigma, \xi, \pi \mid \bm x) \propto p(\theta, \sigma, \xi, \pi) \prod_{j,b} p(\bm x_b^j \mid \theta_b, \sigma_b, \xi_b, \pi_j)
+\]
+where \( \theta \) are the parameters of the sigmoidal functions.
+
+### Likelihood Function
+
+The likelihood function can be expanded to highlight the two-level mixture model formulation:
+\[
+p(\bm x \mid \theta, \sigma, \xi, \pi) = \prod_{j,b} \left[ p(\bm x_b^j \mid \theta_b^0, \sigma_b)\xi_b + \left(\pi_j p(\bm x_b^j \mid \theta_b^1, \sigma_b) + (1-\pi_j) p(\bm x_b^j \mid \theta_b^2, \sigma_b) \right)(1-\xi_b) \right]
+\]
+where \( p(\bm x_b^j \mid \theta_b^i, \sigma_b) = \prod_{\ell=1}^{k_j} \text{NormPDF}(x_b^j(t_\ell), f(t_\ell \mid \theta_b^i), \sigma_b) \) and \( f(t_\ell \mid \theta_b^i) \) is a Sigmoid function with parameters \( \theta_b^i \).
+
+## Installation
+
+To install and use DP-MoSt, follow these steps:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/dp-most.git
+
+# Navigate to the repository directory
+cd dp-most
+
+# Install the required dependencies
+pip install -r requirements.txt
+
+# Run the main script
+python main.py
+```
+
+## Usage
+
+Provide detailed instructions on how to use the DP-MoSt method, including how to input data, configure parameters, and interpret the results. An example script can be included to demonstrate a typical workflow.
+
+## Contributing
+
+We welcome contributions to DP-MoSt! If you find a bug or have a feature request, please open an issue. To contribute code, please fork the repository, create a new branch, and submit a pull request.
+
+## License
+
+DP-MoSt is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
+## References
+
+Viani, Lorenzi, et al. (2024). Disease Progression Modelling and Stratification for detecting sub-trajectories in the natural history of pathologies: application to Parkinson's Disease trajectory modelling.
+
+## Contact
+
+For questions or support, please contact [alessandro.viani@inria.fr].
+
+---
