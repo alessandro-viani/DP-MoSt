@@ -52,7 +52,13 @@ git clone https://github.com/alessandro-viani/dp-most.git
 cd dp-most
 
 # Install the required dependencies
-pip install -r requirements.txt
+matplotlib==3.8.3
+pandas==1.5.3
+numpy==1.26.4
+scikit-learn==1.4.1.post1
+scipy==1.12.0
+seaborn==0.13.2
+torch==2.2.1
 
 # Run the main script
 python main.py
