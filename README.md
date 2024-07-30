@@ -46,7 +46,7 @@ To install and use DP-MoSt, follow these steps:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dp-most.git
+git clone https://github.com/alessandro-viani/dp-most.git
 
 # Navigate to the repository directory
 cd dp-most
