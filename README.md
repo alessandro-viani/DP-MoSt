@@ -9,7 +9,7 @@ DP-MoSt is a method designed to model disease progression and identify sub-popul
 
 ### Problem (i): Estimating Disease Time Axis
 
-For each individual $j$, we define the observations across all biomarkers as $\mathbf{x}^j = (\mathbf{x}^j_b)_{b=1}^B$, where $\mathbf{x}^j_b = (x_b^j(\tilde{t}_{1}), \ldots, x_b^j(\tilde{t}_{k_j}))$ and $B$ is the number of biomarkers. Assuming common sampling times among all subjects and biomarkers, we parameterize the individual time axis via a translation by a time-shift $\delta \tilde{t}_j$, i.e., $\mathbf{t}_j = \tilde{t}_{1:k_j} + \delta \tilde{t}_j$.
+For each individual $j$, we define the observations across all biomarkers as $\mathbf{x}^j = (\mathbf{x}^j_1, ..., \mathbf{x}^j_B)$, where $\mathbf{x}^j_b = (x_b^j(\hat t_{1}), ..., x_b^j(\hat{t}_{k_j}))$ and $B$ is the number of biomarkers. Assuming common sampling times among all subjects and biomarkers, we parameterize the individual time axis via a translation by a time-shift $\delta(\hat t_j)$.
 
 We evaluate the time shifts using the Gaussian process theory of GPPM, which describes biomarker trajectories from normal to pathological stages monotonically.
 
@@ -44,7 +44,7 @@ $$
 
 where
 
-- $p(\mathbf{x}_b^j \mid \theta_b^i, \sigma_b) = \prod_{\ell=1}^{k_j} \text{NormPDF}(x_b^j(t_\ell), f(t_\ell \mid \theta_b^i), \sigma_b)$
+- ![Probability Expression](https://latex.codecogs.com/svg.latex?p(\mathbf{x}_b^j%20\mid%20\theta_b^i,%20\sigma_b)%20=%20\prod_{\ell=1}^{k_j}%20\text{NormPDF}(x_b^j(t_\ell),%20f(t_\ell%20\mid%20\theta_b^i),%20\sigma_b))
 - $f(t_\ell \mid \theta_b^i)$ is a Sigmoid function with parameters $\theta_b^i$.
 
 ## Installation
