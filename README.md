@@ -9,7 +9,13 @@ DP-MoSt is a method designed to model disease progression and identify sub-popul
 
 ### Problem (i): Estimating Disease Time Axis
 
-For each individual $j$, we define the observations across all biomarkers as $\mathbf{x}^j = (\mathbf{x}^j_1, ..., \mathbf{x}^j_B)$, where $\mathbf{x}^j_b = (x_b^j(\hat t_{1}), ..., x_b^j(\hat{t}_{k_j}))$. Morevoer, we define $B$ is the number of biomarkers. Assuming common sampling times among all subjects and biomarkers, we parameterize the individual time axis via a translation by a time-shift $\delta(\hat t_j)$.
+For each individual $j$, we define the observations across all biomarkers as $\mathbf{x}^j = (\mathbf{x}^j_1, ..., \mathbf{x}^j_B)$, where 
+
+$$
+\mathbf{x}^j_b = (x_b^j(\hat t_{1}), ..., x_b^j(\hat{t}_{k_j})).
+$$ 
+
+Morevoer, we define $B$ is the number of biomarkers, and assuming common sampling times among all subjects and biomarkers, we parameterize the individual time axis via a translation by a time-shift $\delta ($ $\hat t_j$ $)$.
 
 We evaluate the time shifts using the Gaussian process theory of GPPM, which describes biomarker trajectories from normal to pathological stages monotonically.
 
@@ -67,8 +73,6 @@ pip install scipy==1.12.0
 pip install seaborn==0.13.2
 pip install torch==2.2.1
 
-# Run the main script
-python main.py
 ```
 
 ## Usage
