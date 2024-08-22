@@ -110,8 +110,3 @@ Viani, Lorenzi, et al. (2024). Disease Progression Modelling and Stratification 
 ## Contact
 
 For questions or support, please contact [alessandro.viani@inria.fr].
-
----
-```
-
-This README includes properly formatted LaTeX equations using `$` for inline and block mathematical expressions.
