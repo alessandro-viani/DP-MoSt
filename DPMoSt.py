@@ -8,7 +8,8 @@ import matplotlib.cm as cm
 import matplotlib as mpl
 import torch.nn as nn
 
-from utility import plot_solution
+from pathlib import Path
+from utility import plot_solution, sigmoid_eval
 
 class DPMoSt(object):
     
@@ -73,6 +74,8 @@ class DPMoSt(object):
         self.stopping_criteria=stopping_criteria
         self.n_prints=n_prints
         self.benchmarks=benchmarks
+        
+        if self.benchmarks: Path('./fig_benchmarks/').mkdir(parents=True, exist_ok=True)
         self.verbose=verbose
 
         self.time_shift_eval=time_shift_eval
@@ -114,7 +117,7 @@ class DPMoSt(object):
         self.n_outer_iterations=None
         self.n_inner_iterations=None
         self.lr=None
-        self.loss=torch.nn.GaussianNLLLoss(full=False)
+        self.loss=torch.nn.GaussianNLLLoss(full=False, reduction='mean')
     
         #initialisation
         self.initialisation()
@@ -128,9 +131,6 @@ class DPMoSt(object):
         if self.log_noise_std.requires_grad:
             self.regression_parameters.append({'params': self.log_noise_std})
 
-
-    def get_rate_grouth(self):
-        return torch.cat([self.est_theta[fdx][1] for fdx in range(self.n_features)], dim=0)
 
     #this function initialise the value for xi and pi setting each value to 0.5, 
     #i.e. assuming no prior on the initial configuration and initialise the particles (sigmoids configurations)
@@ -171,11 +171,6 @@ class DPMoSt(object):
             
         if not self.time_shift_eval: self.time_shift=torch.tensor([0 for _ in range(self.n_subjects)], dtype=torch.float32, device=self.device, requires_grad=False)
         else: self.time_shift=torch.randn((self.n_subjects), dtype=torch.float32, device=self.device, requires_grad=True)
-        
-
-    def sigmoid_eval(self, t, theta):
-        return theta[2] / (1 + torch.exp(-torch.abs(theta[1]) * (t - theta[0])))
-
 
     def log_like(self):
         l_new = 0
@@ -185,8 +180,8 @@ class DPMoSt(object):
         
         for subj_id in range(self.n_subjects):
             subj_indices = self.data.index[self.data['subj_id'] == self.subjects[subj_id]]
-            y_single_subject = self.y[subj_indices]#torch.tensor(subject_data.iloc[:, 2:].values, dtype=torch.float32, device=self.device)
-            t_single_subject = self.t[subj_indices]+self.time_shift[subj_id]#torch.tensor(subject_data['time'].values, dtype=torch.float32, device=self.device)
+            y_single_subject = self.y[subj_indices]
+            t_single_subject = self.t[subj_indices]+self.time_shift[subj_id]
             
             pi_log = torch.log(self.pi[subj_id])
             one_minus_pi_log = torch.log(1 - self.pi[subj_id])
@@ -196,19 +191,65 @@ class DPMoSt(object):
                 y_aux = y_single_subject[:, feature][mask]
                 t_aux = t_single_subject[mask]
                 
-                ll_no_split = (-self.loss(self.sigmoid_eval(t_aux, self.theta[f'Biomarker_{feature}_{0}_split'][0]), 
-                                        y_aux, log_noise_std_exp[feature]) + xi_log[feature])
+                ll_no_split = -self.loss(sigmoid_eval(t_aux, self.theta[f'{self.name_biomarkers[feature]}_{0}_split'][0]), y_aux, log_noise_std_exp[feature]) + xi_log[feature]
+                ll_split1 = -self.loss(sigmoid_eval(t_aux, self.theta[f'{self.name_biomarkers[feature]}_{1}_split'][0]), y_aux, log_noise_std_exp[feature]) + pi_log + one_minus_xi_log[feature]
+                ll_split2 = -self.loss(sigmoid_eval(t_aux, self.theta[f'{self.name_biomarkers[feature]}_{1}_split'][1]), y_aux, log_noise_std_exp[feature]) + one_minus_pi_log + one_minus_xi_log[feature]
 
-                ll_split1 = (-self.loss(self.sigmoid_eval(t_aux, self.theta[f'Biomarker_{feature}_{1}_split'][0]), 
-                                        y_aux, log_noise_std_exp[feature]) + pi_log + one_minus_xi_log[feature])
-
-                ll_split2 = (-self.loss(self.sigmoid_eval(t_aux, self.theta[f'Biomarker_{feature}_{1}_split'][1]), 
-                                        y_aux, log_noise_std_exp[feature]) + one_minus_pi_log + one_minus_xi_log[feature])
-
-                x_concat_new = torch.stack((ll_no_split, ll_split1, ll_split2), dim=0)
-                l_new += torch.logsumexp(x_concat_new, dim=0).sum()
+                l_new += torch.logsumexp(torch.stack((ll_no_split, ll_split1, ll_split2), dim=0), dim=0).sum()
         
         return l_new
+
+
+    def log_like_old(self):
+        # Pre-compute constants
+        log_noise_std_exp = torch.exp(self.log_noise_std)  # Shape: (n_features,)
+        xi_log = torch.log(self.xi)  # Shape: (n_features,)
+        one_minus_xi_log = torch.log1p(-self.xi)  # More stable computation
+
+        # Prepare data mappings
+        subj_to_indices = {subj: self.data.index[self.data['subj_id'] == subj] for subj in self.subjects}
+        pi_log = torch.log(self.pi)  # Shape: (n_subjects,)
+        one_minus_pi_log = torch.log1p(-self.pi)  # Shape: (n_subjects,)
+
+        total_log_likelihood = 0
+
+        for subj_idx, subj in enumerate(self.subjects):
+            indices = subj_to_indices[subj]
+            y_subj = self.y[indices]  # Shape: (n_timepoints, n_features)
+            t_subj = self.t[indices] + self.time_shift[subj_idx]  # Shape: (n_timepoints,)
+
+            # Create masks for valid observations across all features
+            #valid_mask = ~torch.isnan(y_subj)  # Shape: (n_timepoints, n_features)
+
+            # Expand time for broadcasting
+            t_expanded = t_subj.unsqueeze(1).expand_as(y_subj)  # Shape: (n_timepoints, n_features)
+
+            # Prepare theta parameters
+            theta_no_split = torch.stack([self.theta[f'{self.name_biomarkers[feat]}_0_split'][0] for feat in range(self.n_features)])  # Shape: (n_features, theta_dim)
+            theta_split1 = torch.stack([self.theta[f'{self.name_biomarkers[feat]}_1_split'][0] for feat in range(self.n_features)])  # Shape: (n_features, theta_dim)
+            theta_split2 = torch.stack([self.theta[f'{self.name_biomarkers[feat]}_1_split'][1] for feat in range(self.n_features)])  # Shape: (n_features, theta_dim)
+
+            # Evaluate sigmoid functions
+            sigmoid_no_split = sigmoid_eval(t_expanded, theta_no_split)  # Shape: (n_timepoints, n_features)
+            sigmoid_split1 = sigmoid_eval(t_expanded, theta_split1)
+            sigmoid_split2 = sigmoid_eval(t_expanded, theta_split2)
+
+            # Compute loss terms
+            print(y_subj.shape)
+            print(sigmoid_no_split.shape)
+            print(xi_log.shape)
+            loss_no_split = -self.loss(sigmoid_no_split, y_subj, log_noise_std_exp) + xi_log  # Shape: (n_timepoints, n_features)
+            loss_split1 = -self.loss(sigmoid_split1, y_subj, log_noise_std_exp) + pi_log[subj_idx] + one_minus_xi_log
+            loss_split2 = -self.loss(sigmoid_split2, y_subj, log_noise_std_exp) + one_minus_pi_log[subj_idx] + one_minus_xi_log
+
+            # Stack and compute logsumexp across splits
+            loss_stack = torch.stack([loss_no_split, loss_split1, loss_split2], dim=0)  # Shape: (3, n_timepoints, n_features)
+            logsumexp_loss = torch.logsumexp(loss_stack, dim=0)  # Shape: (n_timepoints, n_features)
+
+            # Apply valid mask and sum over all observations
+            total_log_likelihood += logsumexp_loss.sum()
+
+        return total_log_likelihood
 
 
     #this function evaluates the posterior for the split and no split, it is used for the e-step for xi
@@ -216,13 +257,13 @@ class DPMoSt(object):
     def gamma(self, subj_id, feature):
         #log likelihood for a single subject with no split
         subj_indices = self.data.index[self.data['subj_id'] == self.subjects[subj_id]]
-        y_single_subject = self.y[subj_indices]#torch.tensor(subject_data.iloc[:, 2:].values, dtype=torch.float32, device=self.device)
-        t_single_subject = self.t[subj_indices]+self.time_shift[subj_id]#torch.tensor(subject_data['time'].values, dtype=torch.float32, device=self.device)
+        y_single_subject = self.y[subj_indices]
+        t_single_subject = self.t[subj_indices]+self.time_shift[subj_id]
             
         y_single_subject_single_feature=y_single_subject[:,feature]
 
         theta_no_split=self.theta[f'{self.name_biomarkers[feature]}_{0}_split'][0]
-        output=self.sigmoid_eval(t=t_single_subject, theta=theta_no_split)
+        output=sigmoid_eval(t_single_subject, theta_no_split)
 
         like_no_split=torch.exp(-self.loss(output, y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
         
@@ -232,8 +273,8 @@ class DPMoSt(object):
         theta_split_1=theta_split[0]
         theta_split_2=theta_split[1]
 
-        output_split_1=self.sigmoid_eval(t=t_single_subject, theta=theta_split_1)
-        output_split_2=self.sigmoid_eval(t=t_single_subject, theta=theta_split_2)
+        output_split_1=sigmoid_eval(t_single_subject, theta_split_1)
+        output_split_2=sigmoid_eval(t_single_subject, theta_split_2)
         
         log_like_split_1=-self.loss(output_split_1, y_single_subject_single_feature, torch.exp(self.log_noise_std[feature]))
         log_like_split_2=-self.loss(output_split_2, y_single_subject_single_feature, torch.exp(self.log_noise_std[feature]))
@@ -269,10 +310,10 @@ class DPMoSt(object):
             
         y_single_subject_single_feature=y_single_subject[:,feature]
 
-        like_no_split=torch.exp(-self.loss(self.sigmoid_eval(t_single_subject, self.theta[f'Biomarker_{feature}_{0}_split'][0]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
+        like_no_split=torch.exp(-self.loss(sigmoid_eval(t_single_subject, self.theta[f'{self.name_biomarkers[feature]}_{0}_split'][0]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
 
-        like_split1=torch.exp(-self.loss(self.sigmoid_eval(t_single_subject, self.theta[f'Biomarker_{feature}_{1}_split'][0]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
-        like_split2=torch.exp(-self.loss(self.sigmoid_eval(t_single_subject, self.theta[f'Biomarker_{feature}_{1}_split'][1]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
+        like_split1=torch.exp(-self.loss(sigmoid_eval(t_single_subject, self.theta[f'{self.name_biomarkers[feature]}_{1}_split'][0]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
+        like_split2=torch.exp(-self.loss(sigmoid_eval(t_single_subject, self.theta[f'{self.name_biomarkers[feature]}_{1}_split'][1]), y_single_subject_single_feature, torch.exp(self.log_noise_std[feature])))
 
         chi_1_new = like_split1*self.pi[subj_id]/(like_no_split*self.xi[feature] + (like_split1*self.pi[subj_id] + like_split2*(1-self.pi[subj_id]))*(1-self.xi[feature]))
         chi_2_new = like_split2*(1-self.pi[subj_id])/(like_no_split*self.xi[feature] + (like_split1*self.pi[subj_id] + like_split2*(1-self.pi[subj_id]))*(1-self.xi[feature]))
@@ -285,26 +326,21 @@ class DPMoSt(object):
                                for subj_id in range(self.n_subjects)], dtype=torch.float32, device=self.device)
         self.pi=(aux_chi[:,:,0]/(aux_chi[:,:,0]+aux_chi[:,:,1])).mean(axis=1)
 
+    
+    def log_prior(self, outer_iter):
+        log_prior_noise=-self.lambda_reg_noise*torch.sum(self.log_noise_std+1/torch.exp(self.log_noise_std))
+        log_prior_xi=-self.lambda_reg*(self.n_features-self.xi.sum())
+        log_prior_time_shift=-((self.time_shift/3)**2).sum() if self.time_shift_eval else 0
 
-    def log_prior_noise(self):
-        return -self.lambda_reg_noise*torch.sum(self.log_noise_std+1/torch.exp(self.log_noise_std))
+        rate_grouth=torch.tensor([self.theta[f'{self.name_biomarkers[fdx]}_{sdx}_split'][ndx].cpu().detach()[1] for fdx in range(self.n_features) for sdx in range(2) for ndx in range(sdx+1)])
+        log_prior_theta=-1/self.lambda_reg_theta*torch.sum(torch.square((torch.abs(rate_grouth)-3))) if outer_iter<0 and self.lambda_reg_theta>0 else torch.tensor([0], dtype=torch.float32, device=self.device)
 
-
-    def log_prior_xi(self):
-        return -self.lambda_reg*(self.n_features-self.xi.sum())
+        return log_prior_xi+log_prior_noise+log_prior_time_shift+log_prior_theta
     
 
-    def log_prior_time_shift(self):
-        return -((self.time_shift/3)**2).sum() if self.time_shift_eval else 0
-
-
-    def log_prior_theta(self, outer_iter):
-        rate_grouth=torch.tensor([self.theta[f'{self.name_biomarkers[fdx]}_{sdx}_split'][ndx].cpu().detach()[1] for fdx in range(self.n_features) for sdx in range(2) for ndx in range(sdx+1)])
-        return -1/self.lambda_reg_theta*torch.sum(torch.square((torch.abs(rate_grouth)-3))) if outer_iter<5 and self.lambda_reg_theta>0 else torch.tensor([0], dtype=torch.float32, device=self.device)
-
     #this function evaluates the loss function for a given configuration as -log_like+constraints
-    def loss_eval(self, tdx):
-        return -(self.log_like()+self.log_prior_xi()+self.log_prior_noise()+self.log_prior_time_shift()+self.log_prior_theta(tdx))
+    def loss_eval(self, outer_iter):
+        return -(self.log_like()+self.log_prior(outer_iter))
  
     #this function print benchmarks every 5 iterations, if verbose==True it also display on the workspace, 
     #otherwise it only save the plots in the folder fig_benchmarks
@@ -319,23 +355,22 @@ class DPMoSt(object):
                     for fdx in range(self.n_features):
                         print(f'    noisestd {self.name_biomarkers[fdx]} = {torch.exp(self.log_noise_std[fdx]).item():.4f}', end=' ') 
             print('\n')
-        if self.benchmarks:
-            self.estimates()
-            plot_solution(self, save=True, show=self.verbose, dpi=100, name_path=f'fig_benchmarks/sol_iter_{tdx}')
+            if self.benchmarks:
+                self.estimates()
+                plot_solution(self, save=self.benchmarks, show=self.verbose, show_alternatives=True, dpi=100, name_path=f'fig_benchmarks/sol_iter_{tdx+1}')
 
 
     #this function performs the m-step for the optimisation problem
-    def optimise(self, n_outer_iterations=30, n_inner_iterations_time_shift=30, n_inner_iterations_theta=30, lr_theta=1e-4, lr_time_shift=1e-4):
+    def optimise(self, n_outer_iterations=30, n_inner_iterations_time_shift=30, n_inner_iterations_theta_and_noise=30, 
+                 lr_theta_and_noise=1e-1, lr_time_shift=1e-2):
         self.n_outer_iterations=n_outer_iterations
         self.n_inner_iterations_time_shift=n_inner_iterations_time_shift
-        self.n_inner_iterations_time_theta=n_inner_iterations_theta
-        self.lr_theta=lr_theta
+        self.n_inner_iterations_theta_and_noise=n_inner_iterations_theta_and_noise
+        self.lr_theta_and_noise=lr_theta_and_noise
         self.lr_time_shift=lr_time_shift
         start=time.time()
-        if self.regression_parameters: optimizer=torch.optim.Adam(self.regression_parameters, lr=lr_theta)
+        if self.regression_parameters: optimizer=torch.optim.Adam(self.regression_parameters, lr=lr_theta_and_noise)
         if self.time_shift.requires_grad: optimizer_time_shift=torch.optim.Adam([self.time_shift], lr=lr_time_shift)
-
-        counter=0
 
         for tdx in range(n_outer_iterations):
             if self.xi_eval: self.e_step_xi()
@@ -349,8 +384,8 @@ class DPMoSt(object):
                     loss_time_shift.backward()
                     optimizer_time_shift.step()
 
-            if self.theta_eval:
-                for epoch in range(n_inner_iterations_theta):
+            if self.theta_eval or self.noise_std_eval:
+                for epoch in range(n_inner_iterations_theta_and_noise):
                     loss=self.loss_eval(tdx)
                     self.all_loss.append(loss.item())
                     optimizer.zero_grad()
@@ -385,6 +420,6 @@ class DPMoSt(object):
 
 
     #this function saves the model in the indicated folder
-    def save(self, name_path='example/dpmost_sol'):
+    def save(self, name_path='dpmost_sol'):
         with open(f'{name_path}.pkl', 'wb') as f:
             pickle.dump(self, f)
