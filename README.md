@@ -1,3 +1,9 @@
+<div align="center">
+  Data
+</div>
+
+![data](sol_iter_41.png "Your Title Here")
+
 # DP-MoSt: Disease Progression Modeling and Sub-Trajectory Identification
 
 DP-MoSt is a method designed to model disease progression and identify sub-populations within a cohort based on longitudinal biomarker data. It optimizes two complementary problems: 
@@ -52,6 +58,12 @@ where
 
 - ![Probability Expression](https://latex.codecogs.com/svg.latex?p(\mathbf{x}_b^j%20\mid%20\theta_b^i,%20\sigma_b)%20=%20\prod_{\ell=1}^{k_j}%20\text{NormPDF}(x_b^j(t_\ell),%20f(t_\ell%20\mid%20\theta_b^i),%20\sigma_b))
 - $f(t_\ell \mid \theta_b^i)$ is a Sigmoid function with parameters $\theta_b^i$.
+
+<div align="center">
+  Solution
+</div>
+
+![solution](sol_iter_41.png)
 
 ## Installation
 
