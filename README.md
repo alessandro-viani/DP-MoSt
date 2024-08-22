@@ -2,7 +2,7 @@
   Data
 </div>
 
-![data](sol_iter_41.png "Your Title Here")
+![data](fig_benchmarks/data.png)
 
 # DP-MoSt: Disease Progression Modeling and Sub-Trajectory Identification
 
@@ -63,7 +63,7 @@ where
   Solution
 </div>
 
-![solution](sol_iter_41.png)
+![solution](fig_benchmarks/final_sol.png)
 
 ## Installation
 
