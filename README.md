@@ -65,6 +65,14 @@ where
 
 ![solution](fig_benchmarks/final_sol.png)
 
+
+<div align="center">
+  Loss over iterations
+</div>
+
+![solution](fig_benchmarks/loss.png)
+
+
 ## Installation
 
 To install and use DP-MoSt, follow these steps:
