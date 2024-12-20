@@ -56,8 +56,8 @@ $$
 
 where
 
-- ![Probability Expression](https://latex.codecogs.com/svg.latex?p(\mathbf{x}_b^j%20\mid%20\theta_b^i,%20\sigma_b)%20=%20\prod_{\ell=1}^{k_j}%20\text{NormPDF}(x_b^j(t_\ell),%20f(t_\ell%20\mid%20\theta_b^i),%20\sigma_b))
-- $f(t_\ell \mid \theta_b^i)$ is a Sigmoid function with parameters $\theta_b^i$.
+- $p(\mathbf{x_b^j} \mid \theta_b^i, \sigma_b, \tau_j) = \prod_{\ell=1}^{k_j}\text{NormPDF}(x_b^j(t_\ell),f(t_\ell + \tau_j \mid \theta_b^i),\sigma_b))$
+- $f(t \mid \theta)$ is a Sigmoid function with parameters $\theta$.
 
 <div align="center">
   Solution
