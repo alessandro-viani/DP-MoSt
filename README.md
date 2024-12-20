@@ -41,7 +41,7 @@ We assume that the evolution of each biomarker $b$ can be split into multiple su
 The posterior distribution for the model is given by:
 
 $$
-p(\theta, \sigma, \xi, \pi \mid \mathbf{x}) \propto p(\theta, \sigma, \xi, \pi) \prod_{j,b} p(\mathbf{x_b^j} \mid \theta_b, \sigma_b, \xi_b, \pi_j)
+p(\theta, \sigma, \xi, \pi, \tau \mid \mathbf{x}) \propto p(\theta, \sigma, \xi, \pi, \tau) \prod_{j,b} p(\mathbf{x_b^j} \mid \theta_b, \sigma_b, \xi_b, \pi_j, \tau_j)
 $$
 
 where $\theta$ are the parameters of the sigmoidal functions.
@@ -51,7 +51,7 @@ where $\theta$ are the parameters of the sigmoidal functions.
 The likelihood function can be expanded to highlight the two-level mixture model formulation:
 
 $$
-p(\mathbf{x} \mid \theta, \sigma, \xi, \pi) = \prod_{j,b} \left[ p(\mathbf{x_b^j} \mid \theta_b^0, \sigma_b)\xi_b + \left(\pi_j p(\mathbf{x_b^j} \mid \theta_b^1, \sigma_b) + (1-\pi_j) p(\mathbf{x_b^j} \mid \theta_b^2, \sigma_b) \right)(1-\xi_b) \right]
+p(\mathbf{x} \mid \theta, \sigma, \xi, \pi, \tau) = \prod_{j,b} \left[ p(\mathbf{x_b^j} \mid \theta_b^0, \sigma_b, \tau_j)\xi_b + \left(\pi_j p(\mathbf{x_b^j} \mid \theta_b^1, \sigma_b, \tau_j) + (1-\pi_j) p(\mathbf{x_b^j} \mid \theta_b^2, \sigma_b, \tau_j) \right)(1-\xi_b) \right]
 $$
 
 where
